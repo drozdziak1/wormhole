@@ -104,8 +104,45 @@ pub struct PublishMessage<'info> {
 pub struct PublishMessageData {
     /// Unique nonce for this message.
     pub nonce: u32,
+
     /// Message payload as an arbitrary string of bytes.
     pub payload: Vec<u8>,
+}
+
+#[derive(Accounts)]
+pub struct PostVAA<'info> {
+    /// Required by Anchor for associated accounts.
+    pub system_program: AccountInfo<'info>,
+
+    /// Required by Anchor for associated accounts.
+    pub rent: Sysvar<'info, Rent>,
+
+    /// Clock used for timestamping.
+    pub clock: Sysvar<'info, Clock>,
+
+    /// State struct, derived by #[state], used for associated accounts.
+    pub state: ProgramState<'info, Bridge>,
+
+    /// Information about the current guardian set.
+    #[account(init, associated = state)]
+    pub guardian_set: ProgramAccount<'info, GuardianSetInfo>,
+
+    /// Bridge Info
+    pub bridge_info: ProgramState<'info, BridgeInfo>,
+
+    /// Claim Info
+    pub claim: AccountInfo<'info>,
+
+    /// Signature Info
+    pub sig_info: AccountInfo<'info>,
+
+    /// Account used to pay for auxillary instructions.
+    #[account(signer)]
+    pub payer: AccountInfo<'info>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct PostVAAData {
 }
 
 #[program]
@@ -150,11 +187,14 @@ pub mod anchor_bridge {
             )
         }
 
-        pub fn verify_signatures(
-            &mut self,
-            ctx: Context<VerifySig>,
-            data: VerifySigsData,
-        ) -> Result<()> {
+        pub fn post_vaa(&mut self, ctx: Context<PostVAA>, data: PostVAAData) -> Result<()> {
+            api::post_vaa(
+                self,
+                ctx,
+            )
+        }
+
+        pub fn verify_signatures(&mut self, ctx: Context<VerifySig>, data: VerifySigsData) -> Result<()> {
             // Sysvar trait not implemented for Instructions by sdk, so manual check required.  See
             // the VerifySig struct for more info.
             if *ctx.accounts.instruction_sysvar.key != solana_program::sysvar::instructions::id() {

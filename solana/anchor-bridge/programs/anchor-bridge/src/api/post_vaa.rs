@@ -4,6 +4,7 @@ use crate::{
     accounts,
     anchor_bridge::Bridge,
     types::{BridgeConfig, Index},
+    ErrorCode,
     GuardianSetInfo,
     PostVAA,
     PostVAAData,
@@ -18,11 +19,21 @@ pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>) -> Result<()> {
 }
 
 /// A guardian set must not have expired.
+#[inline(always)]
 fn check_active<'r>(guardian_set: &GuardianSetInfo, clock: &Sysvar<'r, Clock>) -> Result<()> {
+    if guardian_set.expiration_time != 0
+        && (guardian_set.expiration_time as i64) < clock.unix_timestamp
+    {
+        return Err(ErrorCode::PostVAAGuardianSetExpired.into());
+    }
     Ok(())
 }
 
 /// The signatures in this instruction must be from the right guardian set.
+#[inline(always)]
 fn check_valid_sigs(guardian_set: &GuardianSetInfo, sig_info: &AccountInfo) -> Result<()> {
+    if sig_state.guardian_set_index != guardian_set.index {
+        return Err(ErrorCode::PostVAAGuardianSetMismatch.into());
+    }
     Ok(())
 }

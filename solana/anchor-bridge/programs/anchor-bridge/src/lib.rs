@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 use anchor_lang::{prelude::*, solana_program};
 
 mod api;
@@ -213,6 +215,12 @@ pub enum ErrorCode {
 
     #[msg("Transaction did not transfer enough fees to suceed.")]
     InsufficientFees,
+
+    #[msg("PostVAA cannot execute with an expired guardian set.")]
+    PostVAAGuardianSetExpired,
+
+    #[msg("PostVAA cannot execute with the wrong guardian set version.")]
+    PostVAAGuardianSetMismatch,
 }
 
 #[account]

@@ -146,6 +146,10 @@ pub struct PostVAA<'info> {
     /// Account used to pay for auxillary instructions.
     #[account(signer)]
     pub payer: AccountInfo<'info>,
+
+    /// Message the VAA is associated with.
+    #[account(signer)]
+    pub message: ProgramAccount<'info, PostedMessage>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]

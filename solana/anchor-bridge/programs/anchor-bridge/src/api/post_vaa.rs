@@ -48,6 +48,12 @@ pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -
         return Err(ErrorCode::PostVAAConsensusFailed.into());
     }
 
+    // Store VAA data in associated message.
+    // TODO: Verify Body Message
+    ctx.accounts.message.vaa_version = vaa.version;
+    ctx.accounts.message.vaa_time = vaa.timestamp;
+    ctx.accounts.message.vaa_signature_account = *ctx.accounts.sig_info.to_account_info().key;
+
     Ok(())
 }
 

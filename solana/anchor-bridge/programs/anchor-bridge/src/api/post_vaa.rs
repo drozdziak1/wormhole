@@ -21,6 +21,33 @@ use sha3::Digest;
 #[access_control(check_valid_sigs(&ctx.accounts.guardian_set, &ctx.accounts.sig_info))]
 #[access_control(check_integrity(&ctx.accounts.sig_info, &vaa))]
 pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -> Result<()> {
+    // Count the numnber of signatures currently present.
+    let signature_count = ctx.accounts.sig_info
+        .signatures
+        .iter()
+        .filter(|v| v.iter().filter(|v| **v != 0).count() != 0)
+        .count() as u8;
+
+    // Calculate how many signatures are required to reach consensus. This calculation is in
+    // expanded form to ease auditing.
+    let required_consensus_count = {
+        // Take key length as u16 to avoid overflow.
+        let len = ctx.accounts.guardian_set.len_keys as u16;
+
+        // Fixed point number transformation with one decimal to deal with rounding.
+        let len = (len * 10) / 3;
+
+        // Multiplication by two to get a 2/3 quorum.
+        let len = len * 2;
+
+        // Division by 10+1 to bring the number back into range.
+        len / (10 + 1)
+    };
+
+    if (signature_count as u16) < required_consensus_count {
+        return Err(ErrorCode::PostVAAConsensusFailed.into());
+    }
+
     Ok(())
 }
 
@@ -32,6 +59,7 @@ fn check_active<'r>(guardian_set: &GuardianSetInfo, clock: &Sysvar<'r, Clock>) -
     {
         return Err(ErrorCode::PostVAAGuardianSetExpired.into());
     }
+
     Ok(())
 }
 

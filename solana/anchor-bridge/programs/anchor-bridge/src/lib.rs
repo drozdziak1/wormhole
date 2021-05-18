@@ -141,7 +141,7 @@ pub struct PostVAA<'info> {
     pub claim: AccountInfo<'info>,
 
     /// Signature Info
-    pub sig_info: AccountInfo<'info>,
+    pub sig_info: ProgramAccount<'info, Signatures>,
 
     /// Account used to pay for auxillary instructions.
     #[account(signer)]
@@ -251,6 +251,9 @@ pub enum ErrorCode {
 
     #[msg("PostVAA cannot execute with the wrong guardian set version.")]
     PostVAAGuardianSetMismatch,
+
+    #[msg("PostVAA failed to due to not enough signatures required for consensus")]
+    PostVAAConsensusFailed,
 }
 
 impl From<std::io::Error> for Error {

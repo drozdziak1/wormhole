@@ -13,9 +13,14 @@ use crate::{
     MAX_LEN_GUARDIAN_KEYS,
 };
 
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use std::io::{Write, Cursor};
+use sha3::Digest;
+
 #[access_control(check_active(&ctx.accounts.guardian_set, &ctx.accounts.clock))]
 #[access_control(check_valid_sigs(&ctx.accounts.guardian_set, &ctx.accounts.sig_info))]
-pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>) -> Result<()> {
+#[access_control(check_integrity(&ctx.accounts.sig_info, &vaa))]
+pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -> Result<()> {
     Ok(())
 }
 
@@ -39,5 +44,26 @@ fn check_valid_sigs<'r>(
     if sig_info.guardian_set_index != guardian_set.index {
         return Err(ErrorCode::PostVAAGuardianSetMismatch.into());
     }
+    Ok(())
+}
+
+#[inline(always)]
+fn check_integrity<'r>(sig_info: &ProgramAccount<'r, Signatures>, vaa: &PostVAAData) -> Result<()> {
+    let body = {
+        let mut v = Cursor::new(Vec::new());
+        v.write_u32::<BigEndian>(vaa.timestamp)?;
+        v.write_u32::<BigEndian>(vaa.nonce)?;
+        v.write_u8(vaa.emitter_chain)?;
+        v.write(&vaa.emitter_address)?;
+        v.write(&vaa.payload)?;
+        v.into_inner()
+    };
+
+    let body_hash: [u8; 32] = {
+        let mut h = sha3::Keccak256::default();
+        h.write(body.as_slice()).map_err(|_| ProgramError::InvalidArgument);
+        h.finalize().into()
+    };
+
     Ok(())
 }

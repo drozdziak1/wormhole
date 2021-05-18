@@ -219,6 +219,7 @@ pub mod anchor_bridge {
             api::post_vaa(
                 self,
                 ctx,
+                &data,
             )
         }
 

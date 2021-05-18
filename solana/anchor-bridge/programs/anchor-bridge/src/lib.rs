@@ -100,8 +100,13 @@ pub struct PublishMessage<'info> {
     pub system_program: AccountInfo<'info>,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
-pub struct PublishMessageData {}
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct PublishMessageData {
+    /// Unique nonce for this message.
+    pub nonce: u32,
+    /// Message payload as an arbitrary string of bytes.
+    pub payload: Vec<u8>,
+}
 
 #[program]
 pub mod anchor_bridge {
@@ -136,7 +141,13 @@ pub mod anchor_bridge {
                 return Err(ErrorCode::InvalidSysVar.into());
             }
 
-            api::publish_message(self, ctx, nonce)
+            api::publish_message(
+                self,
+                ctx,
+                nonce,
+                data.nonce,
+                data.payload,
+            )
         }
 
         pub fn verify_signatures(
@@ -171,12 +182,16 @@ pub struct BridgeInfo {}
 pub struct GuardianSetInfo {
     /// Version number of this guardian set.
     pub index: Index,
+
     /// Number of keys stored
     pub len_keys: u8,
+
     /// public key hashes of the guardian set
     pub keys: [[u8; 20]; MAX_LEN_GUARDIAN_KEYS],
+
     /// creation time
     pub creation_time: u32,
+
     /// expiration time when VAAs issued by this set are no longer valid
     pub expiration_time: u32,
 }

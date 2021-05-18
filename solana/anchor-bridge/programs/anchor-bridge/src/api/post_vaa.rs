@@ -9,6 +9,7 @@ use crate::{
     PostVAA,
     PostVAAData,
     Result,
+    Signatures,
     MAX_LEN_GUARDIAN_KEYS,
 };
 
@@ -31,8 +32,11 @@ fn check_active<'r>(guardian_set: &GuardianSetInfo, clock: &Sysvar<'r, Clock>) -
 
 /// The signatures in this instruction must be from the right guardian set.
 #[inline(always)]
-fn check_valid_sigs(guardian_set: &GuardianSetInfo, sig_info: &AccountInfo) -> Result<()> {
-    if sig_state.guardian_set_index != guardian_set.index {
+fn check_valid_sigs<'r>(
+    guardian_set: &GuardianSetInfo,
+    sig_info: &ProgramAccount<'r, Signatures>,
+) -> Result<()> {
+    if sig_info.guardian_set_index != guardian_set.index {
         return Err(ErrorCode::PostVAAGuardianSetMismatch.into());
     }
     Ok(())

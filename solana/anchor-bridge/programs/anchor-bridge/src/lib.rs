@@ -21,10 +21,15 @@ pub const MAX_LEN_GUARDIAN_KEYS: usize = 20;
 #[derive(Accounts)]
 pub struct VerifySig<'info> {
     pub system: AccountInfo<'info>,
+
     pub instruction_sysvar: AccountInfo<'info>,
+
     pub bridge_info: ProgramState<'info, BridgeInfo>,
-    pub sig_info: AccountInfo<'info>,
+
+    pub sig_info: ProgramAccount<'info, Signatures>,
+
     pub guardian_set_info: ProgramState<'info, GuardianSetInfo>,
+
     pub payer_info: AccountInfo<'info>,
 }
 
@@ -242,6 +247,19 @@ pub struct GuardianSetInfo {
 
     /// expiration time when VAAs issued by this set are no longer valid
     pub expiration_time: u32,
+}
+
+/// Signatures contains metadata about signers in a VerifySignature ix
+#[account]
+pub struct Signatures {
+    /// signatures of validators
+    pub signatures: [[u8; 32]; MAX_LEN_GUARDIAN_KEYS],
+
+    /// hash of the data
+    pub hash: [u8; 32],
+
+    /// index of the guardian set
+    pub guardian_set_index: Index,
 }
 
 /// Record of a posted wormhole message.

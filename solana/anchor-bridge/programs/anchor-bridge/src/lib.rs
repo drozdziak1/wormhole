@@ -149,7 +149,28 @@ pub struct PostVAA<'info> {
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
+pub struct Signature {
+    pub index: u8,
+    pub r: [u8; 32],
+    pub s: [u8; 32],
+    pub v: u8,
+}
+
+pub type ForeignAddress = [u8; 32];
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct PostVAAData {
+    // Header part
+    pub version: u8,
+    pub guardian_set_index: u32,
+    pub signatures: Vec<Signature>,
+
+    // Body part
+    pub timestamp: u32,
+    pub nonce: u32,
+    pub emitter_chain: u8,
+    pub emitter_address: ForeignAddress,
+    pub payload: Vec<u8>,
 }
 
 #[program]

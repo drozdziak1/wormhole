@@ -3,9 +3,10 @@ use anchor_lang::{prelude::*, solana_program};
 use crate::{
     accounts,
     anchor_bridge::Bridge,
-    types::{BridgeConfig, Index, Chain},
-    PublishMessage,
+    types::{BridgeConfig, Chain, Index},
+    ErrorCode,
     PostedMessage,
+    PublishMessage,
     Result,
     MAX_LEN_GUARDIAN_KEYS,
 };
@@ -49,6 +50,7 @@ pub fn publish_message(bridge: &mut Bridge, ctx: Context<PublishMessage>, nonce:
             ],
             signer,
         )?;
+
         // Deserialize the newly created account into an object.
         ProgramAccount::try_from_init(&ctx.accounts.message)?
     };
@@ -61,15 +63,20 @@ pub fn publish_message(bridge: &mut Bridge, ctx: Context<PublishMessage>, nonce:
     // Manually persist changes since we manually created the account.
     message.exit(ctx.program_id)?;
 
+    // Check that within this same transaction, the user paid the fee.
+    check_fees(
+        &ctx.accounts.instructions,
+        &ctx.accounts.state,
+        calculate_transfer_fee(),
+    )?;
+
     Ok(())
 }
 
-// A const time calculation of the fee required to publish a message.
-//
-// Cost breakdown:
-// - 2 Signatures
-// - 1 Claimed VAA Rent
-// - 2x Guardian Fees
+/// A const time calculation of the fee required to publish a message. Cost breakdown:
+/// - 2 Signatures
+/// - 1 Claimed VAA Rent
+/// - 2x Guardian Fees
 const fn calculate_transfer_fee() -> u64 {
     use std::mem::size_of;
     const SIGNATURE_COST: u64 = size_of::<SignatureState>() as u64;
@@ -101,4 +108,62 @@ pub struct ClaimedVAA {
 
     /// time the vaa was submitted
     pub vaa_time: u32,
+}
+
+/// Check Fees.
+fn check_fees(instructions: &AccountInfo, bridge: &ProgramState<Bridge>, fee: u64) -> Result<()> {
+    let current_instruction = solana_program::sysvar::instructions::load_current_index(
+        &instructions.try_borrow_mut_data()?,
+    );
+    if current_instruction == 0 {
+        return Err(ProgramError::InvalidInstructionData.into());
+    }
+
+    // The previous ix must be a transfer instruction
+    let transfer_ix_index = (current_instruction - 1) as u8;
+    let transfer_ix = solana_program::sysvar::instructions::load_instruction_at(
+        transfer_ix_index as usize,
+        &instructions.try_borrow_mut_data()?,
+    )
+    .map_err(|_| ProgramError::InvalidAccountData)?;
+
+    // Check that the instruction is actually for the system program
+    if transfer_ix.program_id != solana_program::system_program::id() {
+        return Err(ProgramError::InvalidArgument.into());
+    }
+
+    if transfer_ix.accounts.len() != 2 {
+        return Err(ProgramError::InvalidInstructionData.into());
+    }
+
+    // Check that the fee was transferred to the bridge config.
+    // We only care that the fee was sent to the bridge, not by whom it was sent.
+    if transfer_ix.accounts[1].pubkey != *bridge.to_account_info().key {
+        return Err(ProgramError::InvalidArgument.into());
+    }
+
+    // The transfer instruction is serialized using bincode (little endian)
+    // uint32 ix_type = 2 (Transfer)
+    // uint64 lamports
+    // LEN: 4 + 8 = 12 bytes
+    if transfer_ix.data.len() != 12 {
+        return Err(ProgramError::InvalidAccountData.into());
+    }
+
+    // Verify action
+    if transfer_ix.data[..4] != [2, 0, 0, 0] {
+        return Err(ProgramError::InvalidInstructionData.into());
+    }
+
+    // Parse amount
+    let mut fixed_data = [0u8; 8];
+    fixed_data.copy_from_slice(&transfer_ix.data[4..]);
+    let amount = u64::from_le_bytes(fixed_data);
+
+    // Verify fee amount
+    if amount < fee {
+        return Err(ErrorCode::InsufficientFees.into());
+    }
+
+    Ok(())
 }

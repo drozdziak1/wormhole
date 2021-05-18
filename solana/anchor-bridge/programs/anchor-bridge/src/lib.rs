@@ -159,6 +159,9 @@ pub mod anchor_bridge {
 pub enum ErrorCode {
     #[msg("System account pubkey did not match expected address.")]
     InvalidSysVar,
+
+    #[msg("Transaction did not transfer enough fees to suceed.")]
+    InsufficientFees,
 }
 
 #[account]

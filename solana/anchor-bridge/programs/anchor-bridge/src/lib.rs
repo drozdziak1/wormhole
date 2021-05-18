@@ -215,6 +215,9 @@ pub mod anchor_bridge {
 
 #[error]
 pub enum ErrorCode {
+    #[msg("Error captured from io::Error")]
+    IoError,
+
     #[msg("System account pubkey did not match expected address.")]
     InvalidSysVar,
 
@@ -226,6 +229,12 @@ pub enum ErrorCode {
 
     #[msg("PostVAA cannot execute with the wrong guardian set version.")]
     PostVAAGuardianSetMismatch,
+}
+
+impl From<std::io::Error> for Error {
+    fn from(_: std::io::Error) -> Self {
+        ErrorCode::IoError.into()
+    }
 }
 
 #[account]

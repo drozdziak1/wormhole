@@ -560,7 +560,6 @@ impl Bridge {
             return Err(ProgramError::InvalidArgument);
         }
 
-
         // Process the message posting
         Self::process_vaa_message_post(
             program_id,

@@ -77,6 +77,7 @@ impl PostedMessage {
 pub struct ClaimedVAA {
     /// hash of the vaa
     pub hash: [u8; 32],
+
     /// time the vaa was submitted
     pub vaa_time: u32,
 }

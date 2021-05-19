@@ -177,13 +177,32 @@ pub struct PostVAAData {
     pub payload: Vec<u8>,
 }
 
+#[derive(Accounts)]
+pub struct GuardianUpdate<'info> {
+    /// Required by Anchor for associated accounts.
+    pub system_program: AccountInfo<'info>,
+
+    /// Required by Anchor for associated accounts.
+    pub rent: Sysvar<'info, Rent>,
+
+    /// Clock used for timestamping.
+    pub clock: Sysvar<'info, Clock>,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+pub struct GuardianUpdateData {
+}
+
 #[program]
 pub mod anchor_bridge {
     use super::*;
 
     #[state]
     pub struct Bridge {
+        /// The current guardian set index, used to decide which signature sets to accept.
         pub guardian_set_index: types::Index,
+
+        /// Bridge configuration, which is set once upon initialization.
         pub config: types::BridgeConfig,
     }
 
@@ -235,6 +254,14 @@ pub mod anchor_bridge {
             }
 
             api::verify_signatures(self, ctx, data.hash, data.signers, data.initial_creation)
+        }
+
+        pub fn process_guardian_update(&mut self, ctx: Context<GuardianUpdate>, data: GuardianUpdateData) -> Result<()> {
+            api::guardian_update(
+                self,
+                ctx,
+                data,
+            )
         }
     }
 }

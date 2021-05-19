@@ -11,18 +11,26 @@ use crate::{
     Result,
     Signatures,
     MAX_LEN_GUARDIAN_KEYS,
+    VAA_TX_FEE,
 };
 
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
-use std::io::{Write, Cursor};
 use sha3::Digest;
+use std::io::{Cursor, Write};
+
+const MIN_BRIDGE_BALANCE: u64 = (((solana_program::rent::ACCOUNT_STORAGE_OVERHEAD
+    + std::mem::size_of::<Bridge>() as u64)
+    * solana_program::rent::DEFAULT_LAMPORTS_PER_BYTE_YEAR) as f64
+    * solana_program::rent::DEFAULT_EXEMPTION_THRESHOLD) as u64;
 
 #[access_control(check_active(&ctx.accounts.guardian_set, &ctx.accounts.clock))]
 #[access_control(check_valid_sigs(&ctx.accounts.guardian_set, &ctx.accounts.sig_info))]
 #[access_control(check_integrity(&ctx.accounts.sig_info, &vaa))]
 pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -> Result<()> {
     // Count the numnber of signatures currently present.
-    let signature_count = ctx.accounts.sig_info
+    let signature_count = ctx
+        .accounts
+        .sig_info
         .signatures
         .iter()
         .filter(|v| v.iter().filter(|v| **v != 0).count() != 0)
@@ -31,7 +39,7 @@ pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -
     // Calculate how many signatures are required to reach consensus. This calculation is in
     // expanded form to ease auditing.
     let required_consensus_count = {
-        // Take key length as u16 to avoid overflow.
+        // Take key length as u16 to avoid overflow when multiplying by 10.
         let len = ctx.accounts.guardian_set.len_keys as u16;
 
         // Fixed point number transformation with one decimal to deal with rounding.
@@ -53,6 +61,40 @@ pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -
     ctx.accounts.message.vaa_version = vaa.version;
     ctx.accounts.message.vaa_time = vaa.timestamp;
     ctx.accounts.message.vaa_signature_account = *ctx.accounts.sig_info.to_account_info().key;
+
+    // If the bridge has enough balance, refund the SOL to the transaction payer.
+    if VAA_TX_FEE
+        < ctx
+            .accounts
+            .state
+            .to_account_info()
+            .lamports()
+            .checked_sub(MIN_BRIDGE_BALANCE)
+            .unwrap_or(0)
+    {
+        transfer_sol(
+            &ctx.accounts.state.to_account_info(),
+            &ctx.accounts.payer,
+            VAA_TX_FEE,
+        )?;
+    }
+
+    // Claim the VAA
+    ctx.accounts.claim.vaa_time = ctx.accounts.clock.unix_timestamp as u32;
+
+    Ok(())
+}
+
+fn transfer_sol(sender: &AccountInfo, recipient: &AccountInfo, amount: u64) -> Result<()> {
+    let mut payer_balance = sender.try_borrow_mut_lamports()?;
+    **payer_balance = payer_balance
+        .checked_sub(amount)
+        .ok_or(ProgramError::InsufficientFunds)?;
+
+    let mut recipient_balance = recipient.try_borrow_mut_lamports()?;
+    **recipient_balance = recipient_balance
+        .checked_add(amount)
+        .ok_or(ProgramError::InvalidArgument)?;
 
     Ok(())
 }

@@ -9,10 +9,8 @@ use crate::{
     PublishMessage,
     Result,
     MAX_LEN_GUARDIAN_KEYS,
+    VAA_TX_FEE,
 };
-
-/// Constant fee for VAA transactions, measured in lamports.
-const VAA_TX_FEE: u64 = 18 * 10000;
 
 /// Maximum size of a posted VAA
 pub const MAX_PAYLOAD_SIZE: usize = 400;

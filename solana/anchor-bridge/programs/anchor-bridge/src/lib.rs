@@ -13,10 +13,14 @@ pub use types::BridgeConfig;
 // otherwise it errors.
 use anchor_bridge::Bridge;
 
-/// chain id of this chain
+/// Chain ID of the chain this contract is deployed on.
 pub const CHAIN_ID_SOLANA: u8 = Chain::Solana as u8;
-/// maximum number of guardians
+
+/// Maximum number of guardians.
 pub const MAX_LEN_GUARDIAN_KEYS: usize = 20;
+
+/// Tx fee of Signature checks and PostVAA (see docs for calculation)
+pub const VAA_TX_FEE: u64 = 18 * 10000;
 
 #[derive(Accounts)]
 pub struct VerifySig<'info> {
@@ -70,8 +74,10 @@ pub struct Initialize<'info> {
 pub struct InitializeData {
     /// number of initial guardians
     pub len_guardians: u8,
+
     /// guardians that are allowed to sign mints
     pub initial_guardian_keys: [[u8; 20]; MAX_LEN_GUARDIAN_KEYS],
+
     /// config for the bridge
     pub config: BridgeConfig,
 }
@@ -138,7 +144,7 @@ pub struct PostVAA<'info> {
     pub bridge_info: ProgramState<'info, BridgeInfo>,
 
     /// Claim Info
-    pub claim: AccountInfo<'info>,
+    pub claim: ProgramAccount<'info, ClaimedVAA>,
 
     /// Signature Info
     pub sig_info: ProgramAccount<'info, Signatures>,
@@ -354,4 +360,14 @@ pub struct PostedMessage {
 
     /// message payload
     pub payload: [[u8; 32]; 13],
+}
+
+#[account]
+#[derive(Default)]
+pub struct ClaimedVAA {
+    /// Hash of the VAA being claimed.
+    pub hash: [u8; 32],
+
+    /// Time the VAA claim was submitted.
+    pub vaa_time: u32,
 }

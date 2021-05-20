@@ -123,7 +123,8 @@ fn check_valid_sigs<'r>(
 }
 
 #[inline(always)]
-fn check_integrity<'r>(sig_info: &ProgramAccount<'r, Signatures>, vaa: &PostVAAData) -> Result<()> {
+fn check_integrity<'r>(signatures: &ProgramAccount<'r, Signatures>, vaa: &PostVAAData) -> Result<()> {
+    // Serialize the VAA body into an array of bytes.
     let body = {
         let mut v = Cursor::new(Vec::new());
         v.write_u32::<BigEndian>(vaa.timestamp)?;
@@ -134,12 +135,18 @@ fn check_integrity<'r>(sig_info: &ProgramAccount<'r, Signatures>, vaa: &PostVAAD
         v.into_inner()
     };
 
+    // Hash this body, which is expected to be the same as the hash currently stored in the
+    // signature account, binding that set of signatures to this VAA.
     let body_hash: [u8; 32] = {
         let mut h = sha3::Keccak256::default();
         h.write(body.as_slice())
             .map_err(|_| ProgramError::InvalidArgument);
         h.finalize().into()
     };
+
+    if signatures.hash != body_hash {
+        return Err(ProgramError::InvalidAccountData.into());
+    }
 
     Ok(())
 }

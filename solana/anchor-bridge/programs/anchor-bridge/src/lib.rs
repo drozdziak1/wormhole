@@ -24,17 +24,28 @@ pub const VAA_TX_FEE: u64 = 18 * 10000;
 
 #[derive(Accounts)]
 pub struct VerifySig<'info> {
-    pub system: AccountInfo<'info>,
-
-    pub instruction_sysvar: AccountInfo<'info>,
-
-    pub bridge_info: ProgramState<'info, BridgeInfo>,
-
-    pub sig_info: ProgramAccount<'info, Signatures>,
-
-    pub guardian_set_info: ProgramState<'info, GuardianSetInfo>,
-
+    /// Account used for paying auxillary transactions.
+    #[account(signer)]
     pub payer_info: AccountInfo<'info>,
+
+    /// The set of signatures we intend on verifying.
+    pub signatures: ProgramAccount<'info, Signatures>,
+
+    /// Guardian Set data used for verifying the signatures with.
+    pub guardian_set_info: ProgramAccount<'info, GuardianSetInfo>,
+
+    /// Instructions used for transaction reflection. Note that this should really be a
+    /// Sysvar<'info, Instructions> but Solana has not implemented `Sysvar` for this type, so
+    /// instead we have an AccountInfo and manually verify.
+    ///
+    /// https://github.com/solana-labs/solana/issues/17017
+    pub instruction: AccountInfo<'info>,
+
+    /// Required by Anchor for associated accounts.
+    pub rent: Sysvar<'info, Rent>,
+
+    /// Required by Anchor for associated accounts.
+    pub system_program: AccountInfo<'info>,
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
@@ -49,7 +60,7 @@ pub struct VerifySigsData {
 
 #[derive(Accounts)]
 pub struct Initialize<'info> {
-    // /// Account used to pay for auxillary instructions.
+    /// Account used to pay for auxillary instructions.
     #[account(signer)]
     pub payer: AccountInfo<'info>,
 
@@ -100,7 +111,11 @@ pub struct PublishMessage<'info> {
     /// State struct, derived by #[state], used for associated accounts.
     pub state: ProgramState<'info, Bridge>,
 
-    /// Instructions used for transaction reflection.
+    /// Instructions used for transaction reflection. Note that this should really be a
+    /// Sysvar<'info, Instructions> but Solana has not implemented `Sysvar` for this type, so
+    /// instead we have an AccountInfo and manually verify.
+    ///
+    /// https://github.com/solana-labs/solana/issues/17017
     pub instructions: AccountInfo<'info>,
 
     /// Clock used for timestamping.
@@ -254,11 +269,17 @@ pub mod anchor_bridge {
         pub fn verify_signatures(&mut self, ctx: Context<VerifySig>, data: VerifySigsData) -> Result<()> {
             // Sysvar trait not implemented for Instructions by sdk, so manual check required.  See
             // the VerifySig struct for more info.
-            if *ctx.accounts.instruction_sysvar.key != solana_program::sysvar::instructions::id() {
+            if *ctx.accounts.instruction.key != solana_program::sysvar::instructions::id() {
                 return Err(ErrorCode::InvalidSysVar.into());
             }
 
-            api::verify_signatures(self, ctx, data.hash, data.signers, data.initial_creation)
+            api::verify_signatures(
+                self,
+                ctx,
+                data.hash,
+                data.signers,
+                data.initial_creation
+            )
         }
 
         pub fn process_guardian_update(&mut self, ctx: Context<GuardianUpdate>, data: GuardianUpdateData) -> Result<()> {

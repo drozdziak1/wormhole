@@ -45,7 +45,7 @@ pub fn verify_signatures(
     initial_creation: bool,
 ) -> Result<()> {
     let sig_infos = filter_empty_signatures(&signers);
-    let ix_acc = &ctx.accounts.instruction_sysvar;
+    let ix_acc = &ctx.accounts.instruction;
 
     let current_ix_idx =
         solana_program::sysvar::instructions::load_current_index(&ix_acc.try_borrow_data()?);

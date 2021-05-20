@@ -6,6 +6,7 @@ edition = "2018"
 
 [dependencies]
 anchor-client = {git = "https://github.com/drozdziak1/anchor", branch = "anchor-debug-feature", features = ["anchor-debug"]}
+# anchor-client = "0.5.0"
 anyhow = "1.0.40"
 anchor-bridge = {path = "../programs/anchor-bridge", features = ["no-idl", "no-entrypoint", "anchor-debug"]}
 clap = "3.0.0-beta.2"

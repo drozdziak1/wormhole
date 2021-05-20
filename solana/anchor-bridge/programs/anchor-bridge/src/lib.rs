@@ -65,11 +65,12 @@ pub struct Initialize<'info> {
     pub payer: AccountInfo<'info>,
 
     /// Information about the current guardian set.
-    #[account(init, associated = state)]
+    // #[account(init, associated = state)]
+    #[account(init)]
     pub guardian_set: ProgramAccount<'info, GuardianSetInfo>,
 
     /// State struct, derived by #[state], used for associated accounts.
-    pub state: ProgramState<'info, Bridge>,
+    // pub state: ProgramState<'info, Bridge>,
 
     /// Used for timestamping actions.
     pub clock: Sysvar<'info, Clock>,
@@ -212,6 +213,7 @@ pub struct GuardianUpdate<'info> {
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
 pub struct GuardianUpdateData {
+    pub dummy: u32,
 }
 
 #[program]
@@ -229,6 +231,7 @@ pub mod anchor_bridge {
 
     impl Bridge {
         pub fn new(ctx: Context<Initialize>, data: InitializeData) -> Result<Self> {
+	    msg!("Yeah boiii");
             api::initialize(
                 ctx,
                 data.len_guardians,
@@ -283,6 +286,7 @@ pub mod anchor_bridge {
         }
 
         pub fn process_guardian_update(&mut self, ctx: Context<GuardianUpdate>, data: GuardianUpdateData) -> Result<()> {
+	    msg!("Yeah boii in process_guardian_update()");
             api::guardian_update(
                 self,
                 ctx,

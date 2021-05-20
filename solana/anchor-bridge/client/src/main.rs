@@ -1,9 +1,8 @@
 use anchor_bridge::{
+    accounts::GuardianUpdate,
     accounts::Initialize,
-    instruction::state::New,
-    BridgeConfig,
-    InitializeData,
-    MAX_LEN_GUARDIAN_KEYS,
+    instruction::state::{New, ProcessGuardianUpdate},
+    BridgeConfig, GuardianUpdateData, InitializeData, MAX_LEN_GUARDIAN_KEYS,
 };
 use anchor_client::{
     solana_sdk::{
@@ -12,13 +11,9 @@ use anchor_client::{
         instruction::AccountMeta,
         pubkey::Pubkey,
         signature::{read_keypair_file, Keypair, Signer},
-        system_instruction,
-        system_program,
-        sysvar,
+        system_instruction, system_program, sysvar,
     },
-    Client,
-    Cluster,
-    EventContext,
+    Client, Cluster, EventContext, Program,
 };
 use anyhow::Result;
 use clap::Clap;
@@ -45,13 +40,12 @@ fn main() -> Result<()> {
 
     let client = Client::new_with_options(url, payer, CommitmentConfig::processed());
 
-    initialize_bridge(&client, opts.bridge_address)?;
+    initialize_bridge(&client.program(opts.bridge_address.clone()))?;
+    guardian_update(&client.program(opts.bridge_address.clone()))?;
     Ok(())
 }
 
-fn initialize_bridge(client: &Client, bridge_address: Pubkey) -> Result<()> {
-    let program = client.program(bridge_address);
-
+fn initialize_bridge(program: &Program) -> Result<()> {
     let guardian_set_key = Keypair::generate(&mut OsRng);
     let state_key = Keypair::generate(&mut OsRng);
 
@@ -64,19 +58,19 @@ fn initialize_bridge(client: &Client, bridge_address: Pubkey) -> Result<()> {
             500,
             &program.id(),
         ))
-        .instruction(system_instruction::create_account(
-            &program.payer(),
-            &state_key.pubkey(),
-            program.rpc().get_minimum_balance_for_rent_exemption(500)?,
-            500,
-            &program.id(),
-        ))
+        // .instruction(system_instruction::create_account(
+        //     &program.payer(),
+        //     &state_key.pubkey(),
+        //     program.rpc().get_minimum_balance_for_rent_exemption(500)?,
+        //     500,
+        //     &program.id(),
+        // ))
         .signer(&guardian_set_key)
         // .signer(&state_key)
         .accounts(Initialize {
             payer: program.payer(),
             guardian_set: guardian_set_key.pubkey(),
-            state: state_key.pubkey(),
+            // state: state_key.pubkey(),
             system_program: system_program::id(),
             clock: sysvar::clock::id(),
             rent: sysvar::rent::id(),
@@ -84,7 +78,7 @@ fn initialize_bridge(client: &Client, bridge_address: Pubkey) -> Result<()> {
         .new(New {
             data: InitializeData {
                 len_guardians: 0,
-                initial_guardian_keys: [[0u8; 20]; MAX_LEN_GUARDIAN_KEYS],
+                initial_guardian_keys: [[0u8; 20]; MAX_LEN_GUARDIAN_KEYS].to_vec(),
                 config: BridgeConfig {
                     guardian_set_expiration_time: 0u32,
                 },
@@ -92,5 +86,20 @@ fn initialize_bridge(client: &Client, bridge_address: Pubkey) -> Result<()> {
         })
         .send()?;
 
+    Ok(())
+}
+
+pub fn guardian_update(program: &Program) -> Result<()> {
+    program
+        .state_request()
+        .accounts(GuardianUpdate {
+            system_program: system_program::id(),
+            rent: sysvar::rent::id(),
+            clock: sysvar::clock::id(),
+        })
+        .args(ProcessGuardianUpdate {
+            data: GuardianUpdateData { dummy: 5 },
+        })
+        .send()?;
     Ok(())
 }

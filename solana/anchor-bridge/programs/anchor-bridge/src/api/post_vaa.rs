@@ -28,19 +28,18 @@ const MIN_BRIDGE_BALANCE: u64 = (((solana_program::rent::ACCOUNT_STORAGE_OVERHEA
 #[access_control(check_integrity(&ctx.accounts.sig_info, &vaa))]
 pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -> Result<()> {
     // Count the numnber of signatures currently present.
-    let signature_count = ctx
+    let signature_count: usize = ctx
         .accounts
         .sig_info
         .signatures
         .iter()
         .filter(|v| v.iter().filter(|v| **v != 0).count() != 0)
-        .count() as u8;
+        .count();
 
     // Calculate how many signatures are required to reach consensus. This calculation is in
     // expanded form to ease auditing.
     let required_consensus_count = {
-        // Take key length as u16 to avoid overflow when multiplying by 10.
-        let len = ctx.accounts.guardian_set.len_keys as u16;
+        let len = ctx.accounts.guardian_set.keys.len();
 
         // Fixed point number transformation with one decimal to deal with rounding.
         let len = (len * 10) / 3;
@@ -52,7 +51,7 @@ pub fn post_vaa(bridge: &mut Bridge, ctx: Context<PostVAA>, vaa: &PostVAAData) -
         len / (10 + 1)
     };
 
-    if (signature_count as u16) < required_consensus_count {
+    if signature_count < required_consensus_count {
         return Err(ErrorCode::PostVAAConsensusFailed.into());
     }
 
@@ -137,7 +136,8 @@ fn check_integrity<'r>(sig_info: &ProgramAccount<'r, Signatures>, vaa: &PostVAAD
 
     let body_hash: [u8; 32] = {
         let mut h = sha3::Keccak256::default();
-        h.write(body.as_slice()).map_err(|_| ProgramError::InvalidArgument);
+        h.write(body.as_slice())
+            .map_err(|_| ProgramError::InvalidArgument);
         h.finalize().into()
     };
 

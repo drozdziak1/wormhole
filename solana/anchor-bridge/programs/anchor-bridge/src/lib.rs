@@ -2,8 +2,8 @@
 
 use anchor_lang::{prelude::*, solana_program};
 
-mod api;
-mod types;
+pub mod api;
+pub mod types;
 
 use types::{Chain, Index};
 
@@ -70,13 +70,13 @@ pub struct Initialize<'info> {
     pub system_program: AccountInfo<'info>,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Debug)]
 pub struct InitializeData {
     /// number of initial guardians
     pub len_guardians: u8,
 
     /// guardians that are allowed to sign mints
-    pub initial_guardian_keys: [[u8; 20]; MAX_LEN_GUARDIAN_KEYS],
+    pub initial_guardian_keys: Vec<[u8; 20]>,
 
     /// config for the bridge
     pub config: BridgeConfig,
@@ -214,7 +214,6 @@ pub mod anchor_bridge {
 
     impl Bridge {
         pub fn new(ctx: Context<Initialize>, data: InitializeData) -> Result<Self> {
-            msg!("Yeah boiiiiiii");
             api::initialize(
                 ctx,
                 data.len_guardians,
@@ -307,11 +306,8 @@ pub struct GuardianSetInfo {
     /// Version number of this guardian set.
     pub index: Index,
 
-    /// Number of keys stored
-    pub len_keys: u8,
-
     /// public key hashes of the guardian set
-    pub keys: [[u8; 20]; MAX_LEN_GUARDIAN_KEYS],
+    pub keys: Vec<[u8; 20]>,
 
     /// creation time
     pub creation_time: u32,
@@ -324,7 +320,7 @@ pub struct GuardianSetInfo {
 #[account]
 pub struct Signatures {
     /// signatures of validators
-    pub signatures: [[u8; 32]; MAX_LEN_GUARDIAN_KEYS],
+    pub signatures: Vec<[u8; 32]>,
 
     /// hash of the data
     pub hash: [u8; 32],
@@ -359,7 +355,7 @@ pub struct PostedMessage {
     pub emitter_address: [u8; 32],
 
     /// message payload
-    pub payload: [[u8; 32]; 13],
+    pub payload: Vec<u8>,
 }
 
 #[account]

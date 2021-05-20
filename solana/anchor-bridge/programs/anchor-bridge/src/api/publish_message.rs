@@ -71,7 +71,7 @@ pub fn publish_message(
     message.emitter_chain = Chain::Solana;
     message.emitter_address = ctx.accounts.emitter.key.to_bytes();
     message.nonce = message_nonce;
-    message.payload = [[0u8; 32]; 13];
+    message.payload = payload;
 
     // Manually persist changes since we manually created the account.
     message.exit(ctx.program_id)?;
@@ -118,7 +118,9 @@ pub struct ClaimedVAA {
 
 /// Check Fees.
 fn check_fees(instructions: &AccountInfo, bridge: &ProgramState<Bridge>, fee: u64) -> Result<()> {
-    let current_instruction = solana_program::sysvar::instructions::load_current_index(
+    use solana_program::sysvar::instructions;
+
+    let current_instruction = instructions::load_current_index(
         &instructions.try_borrow_mut_data()?,
     );
     if current_instruction == 0 {
@@ -127,7 +129,7 @@ fn check_fees(instructions: &AccountInfo, bridge: &ProgramState<Bridge>, fee: u6
 
     // The previous ix must be a transfer instruction
     let transfer_ix_index = (current_instruction - 1) as u8;
-    let transfer_ix = solana_program::sysvar::instructions::load_instruction_at(
+    let transfer_ix = instructions::load_instruction_at(
         transfer_ix_index as usize,
         &instructions.try_borrow_mut_data()?,
     )
